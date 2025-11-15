@@ -7,13 +7,23 @@ type WordBuckets = Record<WordLength, string[]>
 
 type WordSets = Record<WordLength, Set<string>>
 
-const response = await fetch(dictionaryUrl)
-if (!response.ok) {
-  throw new Error('Failed to load dictionary.')
+const fallbackDictionary: WordBuckets = {
+  5: ['CRANE', 'SLATE', 'PRIZE', 'CHORD', 'MONTH'],
+  6: ['PLANET', 'STREAM', 'GARNET', 'THRIVE', 'BUNDLE'],
+  7: ['CAPTURE', 'VICTORY', 'ANALOG', 'PRAISED', 'MYSTERY'],
 }
-const dictionaryData = (await response.json()) as WordBuckets
 
-const bucketed = dictionaryData
+let bucketed: WordBuckets
+try {
+  const response = await fetch(dictionaryUrl)
+  if (!response.ok) {
+    throw new Error(`Failed to load dictionary: ${response.status}`)
+  }
+  bucketed = (await response.json()) as WordBuckets
+} catch (error) {
+  console.error('Failed to load dictionary, falling back to minimal list.', error)
+  bucketed = fallbackDictionary
+}
 
 const bucketSets: WordSets = WORD_LENGTHS.reduce((acc, length) => {
   acc[length] = new Set(bucketed[length])
