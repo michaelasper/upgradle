@@ -402,13 +402,6 @@ function App() {
 
       {isCompact ? (
         <div className="mobile-shell">
-          {activeView === 'game' ? (
-            <section className="board-stack">{boardStackContent}</section>
-          ) : (
-            <div className="mobile-panel-scroll">
-              {activeView === 'generators' ? renderGeneratorPanel() : renderUpgradePanel()}
-            </div>
-          )}
           <nav className="mobile-nav">
             <button
               type="button"
@@ -435,6 +428,13 @@ function App() {
               ⬆️
             </button>
           </nav>
+          {activeView === 'game' ? (
+            <section className="board-stack">{boardStackContent}</section>
+          ) : (
+            <div className="mobile-panel-scroll">
+              {activeView === 'generators' ? renderGeneratorPanel() : renderUpgradePanel()}
+            </div>
+          )}
         </div>
       ) : (
         <div className={layoutClass.join(' ').trim()}>
