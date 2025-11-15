@@ -1,10 +1,12 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
+import type { CSSProperties } from 'react'
 import './App.css'
 import { KEYBOARD_ROWS, TIER_REQUIREMENTS } from './constants'
 import { WORD_LENGTHS } from './dictionary'
 import { useGameEngine } from './hooks/useGameEngine'
 import { generators } from './config/generators'
-import { getGeneratorCost, getUpgradeCost, getTotalUpgradeLevels } from './utils/gameMath'
+import { getGeneratorCost, getUpgradeCost } from './utils/gameMath'
+import { useSoundscape } from './hooks/useSoundscape'
 
 const formatMoney = (value: number) =>
   value.toLocaleString('en-US', { maximumFractionDigits: 0 })
@@ -19,6 +21,8 @@ const getHeatClass = (letter: string, index: number, target: string) => {
 }
 
 function App() {
+  const { playKey, playErase, playReveal, playSuccess, playFail, playUpgrade, playGenerator } =
+    useSoundscape()
   const {
     state,
     dispatch,
@@ -30,14 +34,62 @@ function App() {
     handlePhysicalKey,
     handleVirtualKey,
     passiveIncome,
+    totalUpgradeLevels,
   } = useGameEngine()
+  const generatorUnits = Object.values(state.generatorLevels).reduce((sum, level) => sum + level, 0)
+
+  const inputLengthRef = useRef(state.currentInput.length)
+  const guessCountRef = useRef(state.guesses.length)
+  const puzzleCompleteRef = useRef(state.puzzleComplete)
+  const upgradeLevelRef = useRef(totalUpgradeLevels)
+  const generatorCountRef = useRef(generatorUnits)
 
   useEffect(() => {
     window.addEventListener('keydown', handlePhysicalKey)
     return () => window.removeEventListener('keydown', handlePhysicalKey)
   }, [handlePhysicalKey])
 
-  const totalUpgradeLevels = getTotalUpgradeLevels(state)
+  useEffect(() => {
+    const prev = inputLengthRef.current
+    const current = state.currentInput.length
+    if (current > prev) {
+      playKey()
+    } else if (current < prev) {
+      playErase()
+    }
+    inputLengthRef.current = current
+  }, [state.currentInput.length, playErase, playKey])
+
+  useEffect(() => {
+    const prev = guessCountRef.current
+    const current = state.guesses.length
+    if (current > prev) {
+      playReveal()
+    }
+    guessCountRef.current = current
+  }, [state.guesses.length, playReveal])
+
+  useEffect(() => {
+    if (!puzzleCompleteRef.current && state.puzzleComplete) {
+      if (state.solved) playSuccess()
+      else playFail()
+    }
+    puzzleCompleteRef.current = state.puzzleComplete
+  }, [state.puzzleComplete, state.solved, playFail, playSuccess])
+
+  useEffect(() => {
+    if (totalUpgradeLevels > upgradeLevelRef.current) {
+      playUpgrade()
+    }
+    upgradeLevelRef.current = totalUpgradeLevels
+  }, [playUpgrade, totalUpgradeLevels])
+
+  useEffect(() => {
+    if (generatorUnits > generatorCountRef.current) {
+      playGenerator()
+    }
+    generatorCountRef.current = generatorUnits
+  }, [generatorUnits, playGenerator])
 
   const getUpgradeRequirementName = (id?: string) =>
     id ? sortedUpgrades.find((upgrade) => upgrade.id === id)?.name ?? id : null
@@ -144,6 +196,7 @@ function App() {
                       const mark = row.marks[index]
                       const tileClasses = ['tile']
                       if (!isCurrent && !isEmpty) {
+                        tileClasses.push('tile-revealed')
                         if (state.showHotCold) {
                           tileClasses.push(getHeatClass(letter, index, state.currentWord))
                         } else {
@@ -152,12 +205,19 @@ function App() {
                       } else if (letter.trim().length === 0) {
                         tileClasses.push('inactive')
                       }
+                      if (row.id === 'current' && state.hintReveals[index]) {
+                        tileClasses.push('tile-hint')
+                      }
+
+                      const tileStyle: CSSProperties | undefined =
+                        !isCurrent && !isEmpty ? { animationDelay: `${index * 80}ms` } : undefined
 
                       return (
                         <span
                           key={index}
                           className={tileClasses.join(' ')}
                           data-letter={letter.trim().length ? letter : ''}
+                          style={tileStyle}
                         />
                       )
                     })}
