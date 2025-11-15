@@ -377,6 +377,13 @@ export const useGameEngine = () => {
     if (typeof window === 'undefined') return
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
   }, [state])
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+    const interval = window.setInterval(() => {
+      dispatch({ type: 'tick' })
+    }, 1000)
+    return () => window.clearInterval(interval)
+  }, [dispatch])
 
   const boardRows = useMemo(() => {
     const rows = [...state.guesses]
