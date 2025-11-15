@@ -260,7 +260,6 @@ function App() {
   const boardStackContent = (
     <>
       <section className="board-section">
-        <p className="word-count">Words solved: {state.puzzlesSolved}</p>
         <div className="board">
           {boardRows.map((row, rowIndex) => {
             const isCurrent = row.id === 'current'
@@ -338,7 +337,7 @@ function App() {
         {KEYBOARD_ROWS.map((row, rowIndex) => (
           <div className="key-row" key={`row-${rowIndex}`}>
             {row.map((key) => {
-              const label = key === 'BACKSPACE' ? '⌫' : key
+                  const label = key === 'BACKSPACE' ? '⌫' : key === 'ENTER' ? '⏎' : key
               const statusClass = key.length === 1 ? keyboardState[key] ?? '' : ''
               return (
                 <button
@@ -369,9 +368,6 @@ function App() {
             </button>
           ))}
         </div>
-        <p className="control-hint">
-          Use your keyboard: letters fill the row, Backspace deletes, Enter submits.
-        </p>
       </section>
     </>
   )
