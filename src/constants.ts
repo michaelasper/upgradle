@@ -17,8 +17,9 @@ export const LETTER_PRIORITY: Record<LetterMark, number> = {
 
 export const TIER_REQUIREMENTS: Record<number, number> = {
   1: 0,
-  2: 6,
-  3: 14,
+  2: 8,
+  3: 18,
+  4: 32,
 }
 
 export const WORD_REWARD: Record<WordLength, number> = {

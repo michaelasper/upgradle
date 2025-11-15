@@ -27,6 +27,8 @@ const createSeedState = (overrides: Partial<GameState> = {}): GameState => ({
   generatorLevels: {},
   hintReveals: {},
   tileFlipDuration: 1000,
+  wordBonus: 0,
+  idleMultiplier: 1,
   ...overrides,
 })
 
@@ -65,7 +67,7 @@ test('solving a word updates the board state', async ({ page }) => {
 
 test('idle income accrues when generators are owned', async ({ page }) => {
   await seedAndVisit(page, {
-    generatorLevels: { 'ink-lathe': 1 },
+    generatorLevels: { 'vowel-press': 1 },
     money: 0,
     totalEarned: 0,
   })

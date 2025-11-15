@@ -18,6 +18,22 @@ import {
 } from '../utils/gameMath'
 
 const STORAGE_KEY = 'upgradle-state'
+const LEGACY_GENERATOR_MAP: Record<string, string> = {
+  'ink-lathe': 'vowel-press',
+  'glyph-furnace': 'consonant-cascade',
+  'vault-anvil': 'digraph-forge',
+  'chronicle-engine': 'homophone-kiln',
+  'stellar-foundry': 'lexicon-observatory',
+}
+
+const migrateGeneratorLevels = (levels: Record<string, number> | undefined) => {
+  if (!levels) return {}
+  return Object.entries(levels).reduce<Record<string, number>>((acc, [id, level]) => {
+    const target = LEGACY_GENERATOR_MAP[id] ?? id
+    acc[target] = (acc[target] ?? 0) + level
+    return acc
+  }, {})
+}
 
 const pushLog = (log: string[], entry: string) => [entry, ...log].slice(0, LOG_LIMIT)
 
@@ -45,6 +61,8 @@ const createInitialState = (): GameState => {
     generatorLevels: {},
     hintReveals: {},
     tileFlipDuration: 1000,
+    wordBonus: 0,
+    idleMultiplier: 1,
   }
 
   return startPuzzle(base, base.selectedLength, 'New 5-letter word active.')
@@ -61,9 +79,14 @@ const loadPersistedState = (): GameState | null => {
       ...fallback,
       ...parsed,
       upgradeLevels: parsed.upgradeLevels ?? fallback.upgradeLevels,
-      generatorLevels: parsed.generatorLevels ?? fallback.generatorLevels,
+      generatorLevels: Object.keys(parsed.generatorLevels ?? {}).length
+        ? migrateGeneratorLevels(parsed.generatorLevels)
+        : fallback.generatorLevels,
       hintReveals: parsed.hintReveals ?? fallback.hintReveals,
       log: parsed.log ?? fallback.log,
+      wordBonus: parsed.wordBonus ?? fallback.wordBonus,
+      idleMultiplier: parsed.idleMultiplier ?? fallback.idleMultiplier,
+      tileFlipDuration: parsed.tileFlipDuration ?? fallback.tileFlipDuration,
     }
   } catch (error) {
     console.warn('Failed to load save state', error)
@@ -185,6 +208,20 @@ const applyUpgradeEffect = (
     }
   }
 
+  if (effect.wordBonus) {
+    next = {
+      ...next,
+      wordBonus: next.wordBonus + effect.wordBonus,
+    }
+  }
+
+  if (effect.idleMultiplier) {
+    next = {
+      ...next,
+      idleMultiplier: next.idleMultiplier * effect.idleMultiplier,
+    }
+  }
+
   return next
 }
 
@@ -270,7 +307,8 @@ function reducer(state: GameState, action: GameAction): GameState {
         puzzleComplete = true
         solvedFlag = true
         puzzlesSolved += 1
-        const wordReward = WORD_REWARD[state.selectedLength as 5 | 6 | 7] ?? 1
+        const baseWordReward = WORD_REWARD[state.selectedLength as 5 | 6 | 7] ?? 1
+        const wordReward = Math.max(1, baseWordReward + state.wordBonus)
         wordsBalance += wordReward
         puzzleStatus = `Solved in ${guesses.length} guesses.`
         log = pushLog(
