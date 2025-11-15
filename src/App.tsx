@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import './App.css'
 import { KEYBOARD_ROWS, TIER_REQUIREMENTS } from './constants'
@@ -46,6 +46,8 @@ function App() {
   const puzzleCompleteRef = useRef(state.puzzleComplete)
   const upgradeLevelRef = useRef(totalUpgradeLevels)
   const generatorCountRef = useRef(generatorUnits)
+  const [isCompact, setIsCompact] = useState(false)
+  const [activePanel, setActivePanel] = useState<'generators' | 'upgrades' | null>(null)
 
   useEffect(() => {
     window.addEventListener('keydown', handlePhysicalKey)
@@ -94,11 +96,192 @@ function App() {
     generatorCountRef.current = generatorUnits
   }, [generatorUnits, playGenerator])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const query = window.matchMedia('(max-width: 960px)')
+    const update = (event?: MediaQueryListEvent) => {
+      setIsCompact(event ? event.matches : query.matches)
+    }
+    update()
+    if (typeof query.addEventListener === 'function') {
+      query.addEventListener('change', update)
+      return () => query.removeEventListener('change', update)
+    }
+    query.addListener(update)
+    return () => query.removeListener(update)
+  }, [])
+
+  useEffect(() => {
+    if (!isCompact) {
+      setActivePanel(null)
+    }
+  }, [isCompact])
+
   const getUpgradeRequirementName = (id?: string) =>
     id ? sortedUpgrades.find((upgrade) => upgrade.id === id)?.name ?? id : null
 
   const getGeneratorRequirementName = (id?: string) =>
     id ? generators.find((generator) => generator.id === id)?.name ?? id : null
+
+  const renderGeneratorPanel = () => (
+    <>
+      <div className="section-header">
+        <h2>Foundry lines</h2>
+        <span>${formatMoney(passiveIncome)}/s</span>
+      </div>
+      {isCompact && activePanel && (
+        <div
+          className="mobile-sheet-overlay"
+          role="dialog"
+          aria-modal="true"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setActivePanel(null)
+          }}
+        >
+          <div className="mobile-sheet">
+            <div className="mobile-sheet__header">
+              <span>{activePanel === 'generators' ? 'Foundry lines' : 'Upgrades'}</span>
+              <button
+                type="button"
+                className="mobile-sheet__close"
+                onClick={() => setActivePanel(null)}
+              >
+                Close
+              </button>
+            </div>
+            <div className="mobile-sheet__body">
+              {activePanel === 'generators' ? renderGeneratorPanel() : renderUpgradePanel()}
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="tier-stack">
+        {visibleGeneratorTiers.map((tier) => (
+          <section className={`tier-section tier-${tier}`} key={`generator-tier-${tier}`}>
+            <header className="tier-section__header">
+              <span>Tier {tier}</span>
+              <span className="tier-section__subhead">Unlock sequential foundries</span>
+            </header>
+            <div className="tile-list">
+              {generators
+                .filter((generator) => generator.tier === tier)
+                .map((generator) => {
+                  const owned = state.generatorLevels[generator.id] ?? 0
+                  const nextCost = getGeneratorCost(generator, owned)
+                  const totalIncome = owned * generator.baseIncome
+                  const requirementMet = !generator.requires
+                    ? true
+                    : (state.generatorLevels[generator.requires] ?? 0) > 0
+                  const disabled = state.money < nextCost || !requirementMet
+                  const requirementLabel = getGeneratorRequirementName(generator.requires)
+                  return (
+                    <button
+                      key={generator.id}
+                      className={`info-tile tier-${generator.tier}`}
+                      onClick={() => dispatch({ type: 'buyGenerator', id: generator.id })}
+                      disabled={disabled}
+                      type="button"
+                    >
+                      <div className="info-tile__top">
+                        <div>
+                          <p className="eyebrow">Lv {owned}</p>
+                          <h3>{generator.name}</h3>
+                        </div>
+                        <span className="info-tile__value">+${formatMoney(totalIncome)}/s</span>
+                      </div>
+                      <p className="info-tile__desc">{generator.description}</p>
+                      {!requirementMet && requirementLabel && (
+                        <p className="info-tile__note">Requires {requirementLabel}.</p>
+                      )}
+                      <div className="info-tile__foot">
+                        <span>+${formatMoney(generator.baseIncome)}/s</span>
+                        <span>${formatMoney(nextCost)}</span>
+                      </div>
+                    </button>
+                  )
+                })}
+            </div>
+          </section>
+        ))}
+      </div>
+    </>
+  )
+
+  const renderUpgradePanel = () => (
+    <>
+      <div className="section-header">
+        <h2>Upgrades</h2>
+        <span>Balance: ${formatMoney(state.money)}</span>
+      </div>
+      <div className="tier-stack">
+        {upgradeTierOrder.map((tier) => (
+          <section className={`tier-section tier-${tier}`} key={`upgrade-tier-${tier}`}>
+            <header className="tier-section__header">
+              <span>Tier {tier}</span>
+              <span className="tier-section__subhead">Spend words to reach new perks</span>
+            </header>
+            <div className="tile-list">
+              {sortedUpgrades
+                .filter((upgrade) => upgrade.tier === tier)
+                .map((upgrade) => {
+                  const level = state.upgradeLevels[upgrade.id] ?? 0
+                  const requirementMet =
+                    !upgrade.requires || (state.upgradeLevels[upgrade.requires] ?? 0) > 0
+                  const tierRequirement = TIER_REQUIREMENTS[upgrade.tier] ?? 0
+                  const tierMet = totalUpgradeLevels >= tierRequirement
+                  const locked = !requirementMet || !tierMet
+                  const capped = upgrade.maxLevel !== null && level >= upgrade.maxLevel
+                  const cost = getUpgradeCost(upgrade, level)
+                  const wordsNeeded = upgrade.wordCost ?? 0
+                  const wordsMet = wordsNeeded === 0 || state.words >= wordsNeeded
+                  const disabled = locked || capped || state.money < cost || !wordsMet
+                  const requirementLabel = getUpgradeRequirementName(upgrade.requires)
+                  return (
+                    <button
+                      key={upgrade.id}
+                      className={`info-tile tier-${upgrade.tier}`}
+                      onClick={() => dispatch({ type: 'buyUpgrade', id: upgrade.id })}
+                      disabled={disabled}
+                      type="button"
+                    >
+                      <div className="info-tile__top">
+                        <div>
+                          <p className="eyebrow">Lv {level}</p>
+                          <h3>{upgrade.name}</h3>
+                        </div>
+                        <span className="info-tile__value">
+                          {upgrade.maxLevel !== null ? `${level}/${upgrade.maxLevel}` : '∞'}
+                        </span>
+                      </div>
+                      <p className="info-tile__desc">{upgrade.description}</p>
+                      {!requirementMet && requirementLabel && (
+                        <p className="info-tile__note">Requires {requirementLabel}.</p>
+                      )}
+                      {!tierMet && tierRequirement > 0 && (
+                        <p className="info-tile__note">
+                          Spend {tierRequirement} upgrade levels to enter Tier {upgrade.tier}.
+                        </p>
+                      )}
+                      {!wordsMet && wordsNeeded > 0 && (
+                        <p className="info-tile__note">Need {wordsNeeded} words.</p>
+                      )}
+                      {capped && <p className="info-tile__note">Maxed out.</p>}
+                      <div className="info-tile__foot">
+                        <span>{wordsNeeded > 0 ? `${wordsNeeded} words` : '0 words'}</span>
+                        {capped ? <span>Complete</span> : <span>${formatMoney(cost)}</span>}
+                      </div>
+                    </button>
+                  )
+                })}
+            </div>
+          </section>
+        ))}
+      </div>
+    </>
+  )
+
+  const layoutClass = ['game-layout']
+  if (isCompact) layoutClass.push('compact-layout')
 
   return (
     <main className="wordle-app" style={appStyle}>
@@ -120,63 +303,10 @@ function App() {
         </div>
       </header>
 
-      <div className="game-layout">
-        <aside className="sidebar-panel generators-panel">
-          <div className="section-header">
-            <h2>Foundry lines</h2>
-            <span>${formatMoney(passiveIncome)}/s</span>
-          </div>
-          <div className="tier-stack">
-            {visibleGeneratorTiers.map((tier) => (
-              <section className={`tier-section tier-${tier}`} key={`generator-tier-${tier}`}>
-                <header className="tier-section__header">
-                  <span>Tier {tier}</span>
-                  <span className="tier-section__subhead">Unlock sequential foundries</span>
-                </header>
-                <div className="tile-list">
-                  {generators
-                    .filter((generator) => generator.tier === tier)
-                    .map((generator) => {
-                      const owned = state.generatorLevels[generator.id] ?? 0
-                      const nextCost = getGeneratorCost(generator, owned)
-                      const totalIncome = owned * generator.baseIncome
-                      const requirementMet = !generator.requires
-                        ? true
-                        : (state.generatorLevels[generator.requires] ?? 0) > 0
-                      const disabled = state.money < nextCost || !requirementMet
-                      const requirementLabel = getGeneratorRequirementName(generator.requires)
-                      return (
-                        <button
-                          key={generator.id}
-                          className={`info-tile tier-${generator.tier}`}
-                          onClick={() => dispatch({ type: 'buyGenerator', id: generator.id })}
-                          disabled={disabled}
-                          type="button"
-                        >
-                          <div className="info-tile__top">
-                            <div>
-                              <p className="eyebrow">Lv {owned}</p>
-                              <h3>{generator.name}</h3>
-                            </div>
-                            <span className="info-tile__value">+${formatMoney(totalIncome)}/s</span>
-                          </div>
-                          <p className="info-tile__desc">{generator.description}</p>
-                          {!requirementMet && requirementLabel && (
-                            <p className="info-tile__note">Requires {requirementLabel}.</p>
-                          )}
-                          <div className="info-tile__foot">
-                            <span>+${formatMoney(generator.baseIncome)}/s</span>
-                            <span>${formatMoney(nextCost)}</span>
-                          </div>
-                        </button>
-                      )
-                    })}
-                </div>
-              </section>
-            ))}
-          </div>
-        </aside>
-
+      <div className={layoutClass.join(' ').trim()}>
+        {!isCompact && (
+          <aside className="sidebar-panel generators-panel">{renderGeneratorPanel()}</aside>
+        )}
         <section className="board-stack">
           <section className="board-section">
             <div className="board-header">
@@ -229,11 +359,7 @@ function App() {
               })}
             </div>
             <div className="board-meta">
-              <p>
-                {state.puzzleComplete
-                  ? state.puzzleStatus
-                  : `Type a ${state.selectedLength}-letter word and press enter.`}
-              </p>
+              {state.puzzleComplete && state.puzzleStatus && <p>{state.puzzleStatus}</p>}
               {state.showHotCold && (
                 <p className="hint">
                   Thermal hints replace colors: hot tiles mean close alphabetically.
@@ -261,25 +387,6 @@ function App() {
             </div>
           </section>
 
-          <section className="controls">
-            <div className="length-buttons">
-              {WORD_LENGTHS.map((length) => (
-                <button
-                  key={length}
-                  className={`length-button ${state.selectedLength === length ? 'active' : ''}`}
-                  disabled={!state.unlockedLengths.includes(length)}
-                  onClick={() => dispatch({ type: 'setLength', length })}
-                  type="button"
-                >
-                  {length}-letter
-                </button>
-              ))}
-            </div>
-            <p className="control-hint">
-              Use your keyboard: letters fill the row, Backspace deletes, Enter submits.
-            </p>
-          </section>
-
           <section className="keyboard">
             {KEYBOARD_ROWS.map((row, rowIndex) => (
               <div className="key-row" key={`row-${rowIndex}`}>
@@ -300,82 +407,49 @@ function App() {
               </div>
             ))}
           </section>
+
+          <section className="controls">
+            <div className="length-buttons">
+              {WORD_LENGTHS.map((length) => (
+                <button
+                  key={length}
+                  className={`length-button ${state.selectedLength === length ? 'active' : ''}`}
+                  disabled={!state.unlockedLengths.includes(length)}
+                  onClick={() => dispatch({ type: 'setLength', length })}
+                  type="button"
+                >
+                  {length}-letter
+                </button>
+              ))}
+            </div>
+            <p className="control-hint">
+              Use your keyboard: letters fill the row, Backspace deletes, Enter submits.
+            </p>
+          </section>
+
+          {isCompact && (
+            <div className="mobile-panel-buttons">
+              <button
+                type="button"
+                className={`mobile-panel-button ${activePanel === 'generators' ? 'active' : ''}`}
+                onClick={() => setActivePanel('generators')}
+              >
+                Foundry lines
+              </button>
+              <button
+                type="button"
+                className={`mobile-panel-button ${activePanel === 'upgrades' ? 'active' : ''}`}
+                onClick={() => setActivePanel('upgrades')}
+              >
+                Upgrades
+              </button>
+            </div>
+          )}
         </section>
 
-        <aside className="sidebar-panel upgrades-panel">
-          <div className="section-header">
-            <h2>Upgrades</h2>
-            <span>Balance: ${formatMoney(state.money)}</span>
-          </div>
-          <div className="tier-stack">
-            {upgradeTierOrder.map((tier) => (
-              <section className={`tier-section tier-${tier}`} key={`upgrade-tier-${tier}`}>
-                <header className="tier-section__header">
-                  <span>Tier {tier}</span>
-                  <span className="tier-section__subhead">Spend words to reach new perks</span>
-                </header>
-                <div className="tile-list">
-                  {sortedUpgrades
-                    .filter((upgrade) => upgrade.tier === tier)
-                    .map((upgrade) => {
-                      const level = state.upgradeLevels[upgrade.id] ?? 0
-                      const requirementMet =
-                        !upgrade.requires || (state.upgradeLevels[upgrade.requires] ?? 0) > 0
-                      const tierRequirement = TIER_REQUIREMENTS[upgrade.tier] ?? 0
-                      const tierMet = totalUpgradeLevels >= tierRequirement
-                      const locked = !requirementMet || !tierMet
-                      const capped = upgrade.maxLevel !== null && level >= upgrade.maxLevel
-                      const cost = getUpgradeCost(upgrade, level)
-                      const wordsNeeded = upgrade.wordCost ?? 0
-                      const wordsMet = wordsNeeded === 0 || state.words >= wordsNeeded
-                      const disabled = locked || capped || state.money < cost || !wordsMet
-                      const requirementLabel = getUpgradeRequirementName(upgrade.requires)
-                      return (
-                        <button
-                          key={upgrade.id}
-                          className={`info-tile tier-${upgrade.tier}`}
-                          onClick={() => dispatch({ type: 'buyUpgrade', id: upgrade.id })}
-                          disabled={disabled}
-                          type="button"
-                        >
-                          <div className="info-tile__top">
-                            <div>
-                              <p className="eyebrow">Lv {level}</p>
-                              <h3>{upgrade.name}</h3>
-                            </div>
-                            <span className="info-tile__value">
-                              {upgrade.maxLevel !== null ? `${level}/${upgrade.maxLevel}` : '∞'}
-                            </span>
-                          </div>
-                          <p className="info-tile__desc">{upgrade.description}</p>
-                          {!requirementMet && requirementLabel && (
-                            <p className="info-tile__note">Requires {requirementLabel}.</p>
-                          )}
-                          {!tierMet && tierRequirement > 0 && (
-                            <p className="info-tile__note">
-                              Spend {tierRequirement} upgrade levels to enter Tier {upgrade.tier}.
-                            </p>
-                          )}
-                          {!wordsMet && wordsNeeded > 0 && (
-                            <p className="info-tile__note">Need {wordsNeeded} words.</p>
-                          )}
-                          {capped && <p className="info-tile__note">Maxed out.</p>}
-                          <div className="info-tile__foot">
-                            <span>{wordsNeeded > 0 ? `${wordsNeeded} words` : '0 words'}</span>
-                            {capped ? (
-                              <span>Complete</span>
-                            ) : (
-                              <span>${formatMoney(cost)}</span>
-                            )}
-                          </div>
-                        </button>
-                      )
-                    })}
-                </div>
-              </section>
-            ))}
-          </div>
-        </aside>
+        {!isCompact && (
+          <aside className="sidebar-panel upgrades-panel">{renderUpgradePanel()}</aside>
+        )}
       </div>
     </main>
   )
