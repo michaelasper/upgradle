@@ -260,10 +260,6 @@ function App() {
   const boardStackContent = (
     <>
       <section className="board-section">
-        <div className="board-header">
-          <span>Word #{state.puzzleNumber}</span>
-          <span>{state.guessLimit - state.guesses.length} guesses left</span>
-        </div>
         <p className="word-count">Words solved: {state.puzzlesSolved}</p>
         <div className="board">
           {boardRows.map((row, rowIndex) => {
