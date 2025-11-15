@@ -2,6 +2,17 @@ import type { Upgrade } from '../types/game'
 
 export const upgrades: Upgrade[] = [
   {
+    id: 'flip-accelerators',
+    name: 'Flip Accelerators',
+    description: 'Tiles resolve 150ms faster per tier.',
+    baseCost: 150,
+    costGrowth: 1.45,
+    maxLevel: 4,
+    tier: 1,
+    wordCost: 3,
+    effect: { flipDurationDelta: -150 },
+  },
+  {
     id: 'length-6',
     name: 'Six-Letter Archives',
     description: 'Unlocks 6-letter words for prestigious payouts.',

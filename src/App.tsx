@@ -37,6 +37,9 @@ function App() {
     totalUpgradeLevels,
   } = useGameEngine()
   const generatorUnits = Object.values(state.generatorLevels).reduce((sum, level) => sum + level, 0)
+  const appStyle = {
+    '--tile-flip-speed': `${state.tileFlipDuration}ms`,
+  } as CSSProperties
 
   const inputLengthRef = useRef(state.currentInput.length)
   const guessCountRef = useRef(state.guesses.length)
@@ -98,7 +101,7 @@ function App() {
     id ? generators.find((generator) => generator.id === id)?.name ?? id : null
 
   return (
-    <main className="wordle-app">
+    <main className="wordle-app" style={appStyle}>
       <header className="top-bar">
         <h1>Upgradle</h1>
         <div className="top-stats">

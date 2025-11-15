@@ -292,7 +292,7 @@
 }
 
 .tile-revealed {
-  animation: tileFlip 0.5s ease;
+  animation: tileFlip var(--tile-flip-speed, 1s) ease;
 }
 
 @keyframes tileFlip {

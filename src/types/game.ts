@@ -17,6 +17,7 @@ export type UpgradeEffect = {
   guessLimit?: number
   unlockLength?: WordLength
   showHotCold?: boolean
+  flipDurationDelta?: number
 }
 
 export type Upgrade = {
@@ -65,6 +66,7 @@ export type GameState = {
   puzzleStatus: string | null
   generatorLevels: Record<string, number>
   hintReveals: Record<number, string>
+  tileFlipDuration: number
 }
 
 export type GameAction =

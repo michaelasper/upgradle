@@ -44,6 +44,7 @@ const createInitialState = (): GameState => {
     puzzleStatus: null,
     generatorLevels: {},
     hintReveals: {},
+    tileFlipDuration: 1000,
   }
 
   return startPuzzle(base, base.selectedLength, 'New 5-letter word active.')
@@ -173,6 +174,14 @@ const applyUpgradeEffect = (
     next = {
       ...next,
       guessLimit: next.guessLimit + effect.guessLimit,
+    }
+  }
+
+  if (effect.flipDurationDelta) {
+    const minimumDuration = 250
+    next = {
+      ...next,
+      tileFlipDuration: Math.max(minimumDuration, next.tileFlipDuration + effect.flipDurationDelta),
     }
   }
 
