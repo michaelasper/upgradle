@@ -472,85 +472,54 @@
   display: none;
 }
 
-.mobile-panel-buttons {
-  display: flex;
-  gap: 0.75rem;
-  margin-top: 0.75rem;
-}
-
-.mobile-panel-button {
-  flex: 1;
-  border: 1px solid #3a3a3c;
-  background: #1d1f29;
-  color: inherit;
-  padding: 0.85rem 0.75rem;
-  border-radius: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.mobile-panel-button.active {
-  background: #f5f6f7;
-  color: #121213;
-}
-
-.mobile-sheet-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  display: flex;
-  justify-content: center;
-  align-items: flex-end;
-  z-index: 30;
-  padding: 1rem;
-}
-
-.mobile-sheet {
-  width: min(480px, 100%);
-  max-height: 90vh;
-  background: #0f1118;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+.mobile-shell {
   display: flex;
   flex-direction: column;
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6);
+  gap: 0.75rem;
+  min-height: calc(100vh - 140px);
 }
 
-.mobile-sheet__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.9rem 1.1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  text-transform: uppercase;
-  font-size: 0.9rem;
-  letter-spacing: 0.08em;
-}
-
-.mobile-sheet__body {
-  padding: 0.75rem 1.1rem 1.25rem;
+.mobile-shell .board-stack,
+.mobile-panel-scroll {
+  flex: 1;
   overflow-y: auto;
 }
 
-.mobile-sheet__close {
+.mobile-panel-scroll {
+  padding: 0.25rem 0.35rem 0.75rem;
+}
+
+.mobile-nav {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.4rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(10, 12, 18, 0.95);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+.mobile-nav button {
+  flex: 1;
   border: none;
-  background: transparent;
+  border-radius: 10px;
+  padding: 0.85rem 0;
+  background: #232634;
   color: #f5f6f7;
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-size: 1.2rem;
+}
+
+.mobile-nav button.active {
+  background: #f5f6f7;
+  color: #0f172a;
 }
 
 @media (max-width: 640px) {
   .wordle-app {
-    padding: 1.5rem 0.75rem 2rem;
-    gap: 1rem;
-  }
-
-  .top-stats {
-    flex-direction: column;
-    gap: 0.5rem;
+    padding: 1.2rem 0.65rem 1.4rem;
+    gap: 0.75rem;
+    height: 100vh;
+    overflow: hidden;
   }
 
   .board-section {
@@ -560,8 +529,8 @@
 
   .keyboard {
     position: sticky;
-    bottom: 0.5rem;
-    padding: 0.9rem;
+    bottom: 0;
+    padding: 0.8rem;
     z-index: 5;
   }
 
@@ -580,13 +549,6 @@
     flex-direction: column;
   }
 
-  .mobile-sheet-overlay {
-    padding: 0.5rem;
-  }
-
-  .mobile-sheet {
-    width: 100%;
-  }
 }
 
 .sidebar-panel::-webkit-scrollbar {

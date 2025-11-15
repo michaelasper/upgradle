@@ -47,7 +47,7 @@ function App() {
   const upgradeLevelRef = useRef(totalUpgradeLevels)
   const generatorCountRef = useRef(generatorUnits)
   const [isCompact, setIsCompact] = useState(false)
-  const [activePanel, setActivePanel] = useState<'generators' | 'upgrades' | null>(null)
+  const [activeView, setActiveView] = useState<'game' | 'generators' | 'upgrades'>('game')
 
   useEffect(() => {
     window.addEventListener('keydown', handlePhysicalKey)
@@ -113,7 +113,7 @@ function App() {
 
   useEffect(() => {
     if (!isCompact) {
-      setActivePanel(null)
+      setActiveView('game')
     }
   }, [isCompact])
 
@@ -129,32 +129,6 @@ function App() {
         <h2>Foundry lines</h2>
         <span>${formatMoney(passiveIncome)}/s</span>
       </div>
-      {isCompact && activePanel && (
-        <div
-          className="mobile-sheet-overlay"
-          role="dialog"
-          aria-modal="true"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) setActivePanel(null)
-          }}
-        >
-          <div className="mobile-sheet">
-            <div className="mobile-sheet__header">
-              <span>{activePanel === 'generators' ? 'Foundry lines' : 'Upgrades'}</span>
-              <button
-                type="button"
-                className="mobile-sheet__close"
-                onClick={() => setActivePanel(null)}
-              >
-                Close
-              </button>
-            </div>
-            <div className="mobile-sheet__body">
-              {activePanel === 'generators' ? renderGeneratorPanel() : renderUpgradePanel()}
-            </div>
-          </div>
-        </div>
-      )}
       <div className="tier-stack">
         {visibleGeneratorTiers.map((tier) => (
           <section className={`tier-section tier-${tier}`} key={`generator-tier-${tier}`}>
@@ -283,6 +257,129 @@ function App() {
   const layoutClass = ['game-layout']
   if (isCompact) layoutClass.push('compact-layout')
 
+  const boardStackContent = (
+    <>
+      <section className="board-section">
+        <div className="board-header">
+          <span>Word #{state.puzzleNumber}</span>
+          <span>{state.guessLimit - state.guesses.length} guesses left</span>
+        </div>
+        <p className="word-count">Words solved: {state.puzzlesSolved}</p>
+        <div className="board">
+          {boardRows.map((row, rowIndex) => {
+            const isCurrent = row.id === 'current'
+            const isEmpty = row.id.startsWith('empty-')
+            return (
+              <div
+                className="guess-row"
+                key={`${row.id}-${rowIndex}`}
+                style={{ gridTemplateColumns: `repeat(${state.selectedLength}, 1fr)` }}
+              >
+                {Array.from({ length: state.selectedLength }).map((_, index) => {
+                  const letter = row.word[index] ?? ''
+                  const mark = row.marks[index]
+                  const tileClasses = ['tile']
+                  if (!isCurrent && !isEmpty) {
+                    tileClasses.push('tile-revealed')
+                    if (state.showHotCold) {
+                      tileClasses.push(getHeatClass(letter, index, state.currentWord))
+                    } else {
+                      tileClasses.push(mark)
+                    }
+                  } else if (letter.trim().length === 0) {
+                    tileClasses.push('inactive')
+                  }
+                  if (row.id === 'current' && state.hintReveals[index]) {
+                    tileClasses.push('tile-hint')
+                  }
+
+                  const tileStyle: CSSProperties | undefined =
+                    !isCurrent && !isEmpty ? { animationDelay: `${index * 80}ms` } : undefined
+
+                  return (
+                    <span
+                      key={index}
+                      className={tileClasses.join(' ')}
+                      data-letter={letter.trim().length ? letter : ''}
+                      style={tileStyle}
+                    />
+                  )
+                })}
+              </div>
+            )
+          })}
+        </div>
+        <div className="board-meta">
+          {state.puzzleComplete && state.puzzleStatus && <p>{state.puzzleStatus}</p>}
+          {state.showHotCold && (
+            <p className="hint">
+              Thermal hints replace colors: hot tiles mean close alphabetically.
+            </p>
+          )}
+          {Object.keys(state.hintReveals).length > 0 && (
+            <ul className="hint-list">
+              {Object.entries(state.hintReveals)
+                .sort(([a], [b]) => Number(a) - Number(b))
+                .map(([index, letter]) => (
+                  <li key={index}>
+                    Slot {Number(index) + 1}: {letter}
+                  </li>
+                ))}
+            </ul>
+          )}
+          {state.puzzleComplete && (
+            <button
+              className="secondary-button"
+              onClick={() => dispatch({ type: 'startNextPuzzle' })}
+            >
+              Next word
+            </button>
+          )}
+        </div>
+      </section>
+
+      <section className="keyboard">
+        {KEYBOARD_ROWS.map((row, rowIndex) => (
+          <div className="key-row" key={`row-${rowIndex}`}>
+            {row.map((key) => {
+              const label = key === 'BACKSPACE' ? '⌫' : key
+              const statusClass = key.length === 1 ? keyboardState[key] ?? '' : ''
+              return (
+                <button
+                  key={key}
+                  className={`key ${statusClass}`.trim()}
+                  type="button"
+                  onClick={() => handleVirtualKey(key)}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+        ))}
+      </section>
+
+      <section className="controls">
+        <div className="length-buttons">
+          {WORD_LENGTHS.map((length) => (
+            <button
+              key={length}
+              className={`length-button ${state.selectedLength === length ? 'active' : ''}`}
+              disabled={!state.unlockedLengths.includes(length)}
+              onClick={() => dispatch({ type: 'setLength', length })}
+              type="button"
+            >
+              {length}-letter
+            </button>
+          ))}
+        </div>
+        <p className="control-hint">
+          Use your keyboard: letters fill the row, Backspace deletes, Enter submits.
+        </p>
+      </section>
+    </>
+  )
+
   return (
     <main className="wordle-app" style={appStyle}>
       <header className="top-bar">
@@ -303,154 +400,49 @@ function App() {
         </div>
       </header>
 
-      <div className={layoutClass.join(' ').trim()}>
-        {!isCompact && (
-          <aside className="sidebar-panel generators-panel">{renderGeneratorPanel()}</aside>
-        )}
-        <section className="board-stack">
-          <section className="board-section">
-            <div className="board-header">
-              <span>Word #{state.puzzleNumber}</span>
-              <span>{state.guessLimit - state.guesses.length} guesses left</span>
-            </div>
-            <p className="word-count">Words solved: {state.puzzlesSolved}</p>
-            <div className="board">
-              {boardRows.map((row, rowIndex) => {
-                const isCurrent = row.id === 'current'
-                const isEmpty = row.id.startsWith('empty-')
-                return (
-                  <div
-                    className="guess-row"
-                    key={`${row.id}-${rowIndex}`}
-                    style={{ gridTemplateColumns: `repeat(${state.selectedLength}, 1fr)` }}
-                  >
-                    {Array.from({ length: state.selectedLength }).map((_, index) => {
-                      const letter = row.word[index] ?? ''
-                      const mark = row.marks[index]
-                      const tileClasses = ['tile']
-                      if (!isCurrent && !isEmpty) {
-                        tileClasses.push('tile-revealed')
-                        if (state.showHotCold) {
-                          tileClasses.push(getHeatClass(letter, index, state.currentWord))
-                        } else {
-                          tileClasses.push(mark)
-                        }
-                      } else if (letter.trim().length === 0) {
-                        tileClasses.push('inactive')
-                      }
-                      if (row.id === 'current' && state.hintReveals[index]) {
-                        tileClasses.push('tile-hint')
-                      }
-
-                      const tileStyle: CSSProperties | undefined =
-                        !isCurrent && !isEmpty ? { animationDelay: `${index * 80}ms` } : undefined
-
-                      return (
-                        <span
-                          key={index}
-                          className={tileClasses.join(' ')}
-                          data-letter={letter.trim().length ? letter : ''}
-                          style={tileStyle}
-                        />
-                      )
-                    })}
-                  </div>
-                )
-              })}
-            </div>
-            <div className="board-meta">
-              {state.puzzleComplete && state.puzzleStatus && <p>{state.puzzleStatus}</p>}
-              {state.showHotCold && (
-                <p className="hint">
-                  Thermal hints replace colors: hot tiles mean close alphabetically.
-                </p>
-              )}
-              {Object.keys(state.hintReveals).length > 0 && (
-                <ul className="hint-list">
-                  {Object.entries(state.hintReveals)
-                    .sort(([a], [b]) => Number(a) - Number(b))
-                    .map(([index, letter]) => (
-                      <li key={index}>
-                        Slot {Number(index) + 1}: {letter}
-                      </li>
-                    ))}
-                </ul>
-              )}
-              {state.puzzleComplete && (
-                <button
-                  className="secondary-button"
-                  onClick={() => dispatch({ type: 'startNextPuzzle' })}
-                >
-                  Next word
-                </button>
-              )}
-            </div>
-          </section>
-
-          <section className="keyboard">
-            {KEYBOARD_ROWS.map((row, rowIndex) => (
-              <div className="key-row" key={`row-${rowIndex}`}>
-                {row.map((key) => {
-                  const label = key === 'BACKSPACE' ? '⌫' : key
-                  const statusClass = key.length === 1 ? keyboardState[key] ?? '' : ''
-                  return (
-                    <button
-                      key={key}
-                      className={`key ${statusClass}`.trim()}
-                      type="button"
-                      onClick={() => handleVirtualKey(key)}
-                    >
-                      {label}
-                    </button>
-                  )
-                })}
-              </div>
-            ))}
-          </section>
-
-          <section className="controls">
-            <div className="length-buttons">
-              {WORD_LENGTHS.map((length) => (
-                <button
-                  key={length}
-                  className={`length-button ${state.selectedLength === length ? 'active' : ''}`}
-                  disabled={!state.unlockedLengths.includes(length)}
-                  onClick={() => dispatch({ type: 'setLength', length })}
-                  type="button"
-                >
-                  {length}-letter
-                </button>
-              ))}
-            </div>
-            <p className="control-hint">
-              Use your keyboard: letters fill the row, Backspace deletes, Enter submits.
-            </p>
-          </section>
-
-          {isCompact && (
-            <div className="mobile-panel-buttons">
-              <button
-                type="button"
-                className={`mobile-panel-button ${activePanel === 'generators' ? 'active' : ''}`}
-                onClick={() => setActivePanel('generators')}
-              >
-                Foundry lines
-              </button>
-              <button
-                type="button"
-                className={`mobile-panel-button ${activePanel === 'upgrades' ? 'active' : ''}`}
-                onClick={() => setActivePanel('upgrades')}
-              >
-                Upgrades
-              </button>
+      {isCompact ? (
+        <div className="mobile-shell">
+          {activeView === 'game' ? (
+            <section className="board-stack">{boardStackContent}</section>
+          ) : (
+            <div className="mobile-panel-scroll">
+              {activeView === 'generators' ? renderGeneratorPanel() : renderUpgradePanel()}
             </div>
           )}
-        </section>
-
-        {!isCompact && (
+          <nav className="mobile-nav">
+            <button
+              type="button"
+              className={activeView === 'game' ? 'active' : ''}
+              onClick={() => setActiveView('game')}
+              aria-label="Play"
+            >
+              🎯
+            </button>
+            <button
+              type="button"
+              className={activeView === 'generators' ? 'active' : ''}
+              onClick={() => setActiveView('generators')}
+              aria-label="Foundry lines"
+            >
+              🏭
+            </button>
+            <button
+              type="button"
+              className={activeView === 'upgrades' ? 'active' : ''}
+              onClick={() => setActiveView('upgrades')}
+              aria-label="Upgrades"
+            >
+              ⬆️
+            </button>
+          </nav>
+        </div>
+      ) : (
+        <div className={layoutClass.join(' ').trim()}>
+          <aside className="sidebar-panel generators-panel">{renderGeneratorPanel()}</aside>
+          <section className="board-stack">{boardStackContent}</section>
           <aside className="sidebar-panel upgrades-panel">{renderUpgradePanel()}</aside>
-        )}
-      </div>
+        </div>
+      )}
     </main>
   )
 }
