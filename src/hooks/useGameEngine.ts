@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useReducer } from 'react'
+import { useCallback, useEffect, useMemo, useReducer } from 'react'
 import { isValidWord, pickWord } from '../dictionary'
 import { generators } from '../config/generators'
 import { upgrades } from '../config/upgrades'
@@ -17,31 +17,58 @@ import {
   getUpgradeCost,
 } from '../utils/gameMath'
 
+const STORAGE_KEY = 'upgradle-state'
+
 const pushLog = (log: string[], entry: string) => [entry, ...log].slice(0, LOG_LIMIT)
 
-const createInitialState = (): GameState => ({
-  money: 0,
-  totalEarned: 0,
-  words: 0,
-  unlockedLengths: [5],
-  selectedLength: 5,
-  guesses: [],
-  currentWord: '',
-  currentInput: '',
-  guessLimit: 6,
-  puzzleComplete: false,
-  solved: false,
-  upgradeLevels: {},
-  payoutBonus: 0,
-  payoutMultiplier: 1,
-  showHotCold: false,
-  log: ['Welcome to Upgradle. Enter words to mint cash.'],
-  puzzleNumber: 0,
-  puzzlesSolved: 0,
-  puzzleStatus: null,
-  generatorLevels: {},
-  hintReveals: {},
-})
+const createInitialState = (): GameState => {
+  const base: GameState = {
+    money: 0,
+    totalEarned: 0,
+    words: 0,
+    unlockedLengths: [5],
+    selectedLength: 5,
+    guesses: [],
+    currentWord: '',
+    currentInput: '',
+    guessLimit: 6,
+    puzzleComplete: false,
+    solved: false,
+    upgradeLevels: {},
+    payoutBonus: 0,
+    payoutMultiplier: 1,
+    showHotCold: false,
+    log: ['Welcome to Upgradle. Enter words to mint cash.'],
+    puzzleNumber: 0,
+    puzzlesSolved: 0,
+    puzzleStatus: null,
+    generatorLevels: {},
+    hintReveals: {},
+  }
+
+  return startPuzzle(base, base.selectedLength, 'New 5-letter word active.')
+}
+
+const loadPersistedState = (): GameState | null => {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    const fallback = createInitialState()
+    return {
+      ...fallback,
+      ...parsed,
+      upgradeLevels: parsed.upgradeLevels ?? fallback.upgradeLevels,
+      generatorLevels: parsed.generatorLevels ?? fallback.generatorLevels,
+      hintReveals: parsed.hintReveals ?? fallback.hintReveals,
+      log: parsed.log ?? fallback.log,
+    }
+  } catch (error) {
+    console.warn('Failed to load save state', error)
+    return null
+  }
+}
 
 const startPuzzle = (state: GameState, length: WordLength, message?: string): GameState => {
   const word = pickWord(length)
@@ -335,7 +362,12 @@ function reducer(state: GameState, action: GameAction): GameState {
 }
 
 export const useGameEngine = () => {
-  const [state, dispatch] = useReducer(reducer, undefined, createInitialState)
+  const [state, dispatch] = useReducer(reducer, undefined, () => loadPersistedState() ?? createInitialState())
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+  }, [state])
 
   const boardRows = useMemo(() => {
     const rows = [...state.guesses]
@@ -462,3 +494,5 @@ export const useGameEngine = () => {
     totalUpgradeLevels,
   }
 }
+
+export { createInitialState, reducer }
