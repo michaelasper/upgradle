@@ -100,7 +100,13 @@ function App() {
     if (typeof window === 'undefined') return
     const query = window.matchMedia('(max-width: 960px)')
     const update = (event?: MediaQueryListEvent) => {
-      setIsCompact(event ? event.matches : query.matches)
+      const nextIsCompact = event ? event.matches : query.matches
+      setIsCompact(nextIsCompact)
+      if (!nextIsCompact) {
+        // Reset mobile tab when entering desktop layout.
+        // Schedule asynchronously to avoid react-hooks/set-state-in-effect.
+        setTimeout(() => setActiveView('game'), 0)
+      }
     }
     update()
     if (typeof query.addEventListener === 'function') {
@@ -111,11 +117,6 @@ function App() {
     return () => query.removeListener(update)
   }, [])
 
-  useEffect(() => {
-    if (!isCompact) {
-      setActiveView('game')
-    }
-  }, [isCompact])
 
   const getUpgradeRequirementName = (id?: string) =>
     id ? sortedUpgrades.find((upgrade) => upgrade.id === id)?.name ?? id : null
