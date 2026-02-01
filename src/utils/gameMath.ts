@@ -6,8 +6,8 @@ export const getGeneratorCost = (generator: Generator, owned: number) =>
 export const getUpgradeCost = (upgrade: Upgrade, level: number) =>
   Math.ceil(upgrade.baseCost * Math.pow(upgrade.costGrowth, level))
 
-export const getTotalUpgradeLevels = (state: GameState) =>
-  Object.values(state.upgradeLevels).reduce((sum, level) => sum + level, 0)
+export const getTotalUpgradeLevels = (upgradeLevels: GameState['upgradeLevels']) =>
+  Object.values(upgradeLevels).reduce((sum, level) => sum + level, 0)
 
 export const getPassiveIncome = (state: GameState, generatorList: Generator[]) => {
   const base = generatorList.reduce((total, generator) => {

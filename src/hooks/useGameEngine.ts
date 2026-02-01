@@ -351,7 +351,7 @@ function reducer(state: GameState, action: GameAction): GameState {
         if (reqLevel <= 0) return state
       }
       const tierRequirement = TIER_REQUIREMENTS[upgrade.tier] ?? 0
-      if (getTotalUpgradeLevels(state) < tierRequirement) return state
+      if (getTotalUpgradeLevels(state.upgradeLevels) < tierRequirement) return state
       const cost = getUpgradeCost(upgrade, currentLevel)
       if (state.money < cost) return state
       let wordsBalance = state.words
@@ -532,7 +532,7 @@ export const useGameEngine = () => {
   )
 
   const passiveIncome = useMemo(() => getPassiveIncome(state, generators), [state])
-  const totalUpgradeLevels = useMemo(() => getTotalUpgradeLevels(state), [state.upgradeLevels])
+  const totalUpgradeLevels = useMemo(() => getTotalUpgradeLevels(state.upgradeLevels), [state.upgradeLevels])
 
   return {
     state,
